@@ -1,0 +1,45 @@
+# Default values for your application.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global settings for the application
+replicaCount: 1
+
+image:
+  # Backend image settings
+  backend:
+    repository: "staian000/python-todo-backend"
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  # Frontend image settings
+  frontend:
+    repository: "nginx"
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+service:
+  # Frontend service settings
+  frontend:
+    type: NodePort
+    port: 80
+  # Backend service settings
+  backend:
+    type: ClusterIP
+    port: 5000
+
+# Database settings
+database:
+  # PostgreSQL image settings
+  image:
+    repository: "postgres"
+    tag: "14"
+    pullPolicy: IfNotPresent
+  # Database credentials and configuration
+  user: "todo_user"
+  name: "todo_db"
+  password: "my-long-and-secure-password"
+  jwtSecret: "a-super-secret-key-for-my-app-12345"
+  # Storage for the database
+  storage:
+    storageClassName: "longhorn1"
+    size: 2Gi
