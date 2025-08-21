@@ -1,0 +1,61 @@
+# A StatefulSet for the PostgreSQL database. This ensures that the pods
+# have a stable network identity and that their Longhorn volumes
+# are managed correctly.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-db
+spec:
+  serviceName: "postgres-db-service"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-db
+  template:
+    metadata:
+      labels:
+        app: postgres-db
+    spec:
+      # Add the securityContext to run the container as an unprivileged user
+      securityContext:
+        runAsUser: 999
+        fsGroup: 999
+      containers:
+        - name: postgres
+          image: postgres:14
+          ports:
+            - containerPort: 5432
+              name: postgres
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: todo-app-config
+                  key: DB_NAME
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: todo-app-config
+                  key: DB_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: todo-app-secrets
+                  key: DB_PASSWORD
+            # Use PGDATA to specify the data directory, which is the correct
+            # way to configure it in the official PostgreSQL image.
+            - name: PGDATA
+              value: "/var/lib/postgresql/data/pgdata"
+          # Use a subdirectory for data to avoid issues with `lost+found`
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: longhorn1
+        resources:
+          requests:
+            storage: 2Gi

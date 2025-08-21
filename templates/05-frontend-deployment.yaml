@@ -1,0 +1,399 @@
+# A simple deployment for the static HTML frontend.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend-nginx
+        image: nginx:latest
+        ports:
+          - containerPort: 80
+        volumeMounts:
+          - name: frontend-volume
+            mountPath: /usr/share/nginx/html
+      volumes:
+        - name: frontend-volume
+          configMap:
+            name: frontend-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+data:
+  index.html: |
+    # This ConfigMap holds the static content for the frontend,
+# including the index.html file.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Python To-Do App</title>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+            body {
+                font-family: 'Inter', sans-serif;
+                background-color: #f4f7f6;
+                color: #333;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+                margin: 0;
+                padding: 20px;
+            }
+            .container {
+                background: #fff;
+                padding: 30px;
+                border-radius: 12px;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+                width: 100%;
+                max-width: 600px;
+            }
+            h1 {
+                text-align: center;
+                color: #2c3e50;
+                margin-bottom: 20px;
+            }
+            .auth-container, .app-container {
+                display: none;
+            }
+            .auth-container.active, .app-container.active {
+                display: block;
+            }
+            .form-group {
+                margin-bottom: 15px;
+            }
+            input[type="text"], input[type="password"] {
+                width: calc(100% - 22px);
+                padding: 10px;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+            }
+            button {
+                width: 100%;
+                padding: 12px;
+                border: none;
+                border-radius: 8px;
+                background-color: #3498db;
+                color: white;
+                font-size: 16px;
+                cursor: pointer;
+                transition: background-color 0.3s;
+            }
+            button:hover {
+                background-color: #2980b9;
+            }
+            #message-box {
+                text-align: center;
+                margin-top: 10px;
+                padding: 10px;
+                border-radius: 8px;
+                background-color: #e74c3c;
+                color: white;
+                display: none;
+            }
+            .logout-btn {
+                background-color: #e74c3c;
+                width: auto;
+                margin-top: 20px;
+                float: right;
+            }
+            .logout-btn:hover {
+                background-color: #c0392b;
+            }
+            #task-list {
+                list-style: none;
+                padding: 0;
+                margin-top: 20px;
+            }
+            .task-item {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 10px;
+                border-bottom: 1px solid #eee;
+                transition: background-color 0.3s;
+            }
+            .task-item:hover {
+                background-color: #f9f9f9;
+            }
+            .task-item.completed span {
+                text-decoration: line-through;
+                color: #999;
+            }
+            .task-actions {
+                display: flex;
+                gap: 10px;
+            }
+            .task-actions button {
+                width: auto;
+                padding: 5px 10px;
+                font-size: 14px;
+            }
+            .complete-btn {
+                background-color: #2ecc71;
+            }
+            .complete-btn:hover {
+                background-color: #27ae60;
+            }
+            .delete-btn {
+                background-color: #e74c3c;
+            }
+            .delete-btn:hover {
+                background-color: #c0392b;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>To-Do List App</h1>
+            <div id="auth-container" class="auth-container active">
+                <div id="message-box"></div>
+                <div class="form-group">
+                    <input type="text" id="username" placeholder="Username">
+                </div>
+                <div class="form-group">
+                    <input type="password" id="password" placeholder="Password">
+                </div>
+                <button id="register-btn">Register</button>
+                <br><br>
+                <button id="login-btn">Login</button>
+            </div>
+
+            <div id="app-container" class="app-container">
+                <button class="logout-btn" id="logout-btn">Logout</button>
+                <h2>My Tasks</h2>
+                <div class="form-group">
+                    <input type="text" id="new-task-title" placeholder="Add a new task">
+                </div>
+                <button id="add-task-btn">Add Task</button>
+                <ul id="task-list"></ul>
+            </div>
+        </div>
+
+        <script>
+            // Use the internal cluster DNS name for the backend service. This is the most reliable method.
+            const API_URL = "http://localhost:5000/api";
+            const authContainer = document.getElementById('auth-container');
+            const appContainer = document.getElementById('app-container');
+            const messageBox = document.getElementById('message-box');
+            const taskList = document.getElementById('task-list');
+
+            function showMessage(message, type = 'error') {
+                messageBox.textContent = message;
+                messageBox.style.backgroundColor = type === 'success' ? '#2ecc71' : '#e74c3c';
+                messageBox.style.display = 'block';
+                setTimeout(() => messageBox.style.display = 'none', 5000);
+            }
+
+            function setLoggedIn(token) {
+                localStorage.setItem('token', token);
+                authContainer.classList.remove('active');
+                appContainer.classList.add('active');
+                fetchTasks();
+            }
+
+            function setLoggedOut() {
+                localStorage.removeItem('token');
+                authContainer.classList.add('active');
+                appContainer.classList.remove('active');
+                taskList.innerHTML = '';
+            }
+
+            async function fetchTasks() {
+                const token = localStorage.getItem('token');
+                if (!token) return;
+
+                try {
+                    const response = await fetch(`${API_URL}/tasks`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (!response.ok) {
+                        if (response.status === 401) {
+                            setLoggedOut();
+                            showMessage("Session expired. Please log in again.", 'error');
+                        } else {
+                            throw new Error('Failed to fetch tasks');
+                        }
+                        return;
+                    }
+                    const tasks = await response.json();
+                    renderTasks(tasks);
+                } catch (error) {
+                    console.error(error);
+                    showMessage(error.message, 'error');
+                }
+            }
+
+            function renderTasks(tasks) {
+                taskList.innerHTML = '';
+                tasks.forEach(task => {
+                    const li = document.createElement('li');
+                    li.className = `task-item ${task.completed ? 'completed' : ''}`;
+                    li.innerHTML = `
+                        <span>${task.title}</span>
+                        <div class="task-actions">
+                            <button class="complete-btn" data-id="${task.id}" data-completed="${task.completed}">${task.completed ? 'Un-do' : 'Complete'}</button>
+                            <button class="delete-btn" data-id="${task.id}">Delete</button>
+                        </div>
+                    `;
+                    taskList.appendChild(li);
+                });
+            }
+
+            document.getElementById('register-btn').addEventListener('click', async () => {
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                try {
+                    const response = await fetch(`${API_URL}/register`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    const result = await response.json();
+                    if (response.ok) {
+                        showMessage(result.message, 'success');
+                        // Automatically log in after successful registration
+                        if (response.ok) {
+                             const loginResponse = await fetch(`${API_URL}/login`, {
+                                 method: 'POST',
+                                 headers: { 'Content-Type': 'application/json' },
+                                 body: JSON.stringify({ username, password })
+                             });
+                             const loginResult = await loginResponse.json();
+                             if (loginResponse.ok) {
+                                 setLoggedIn(loginResult.token);
+                             }
+                        }
+                    } else {
+                        showMessage(result.message, 'error');
+                    }
+                } catch (error) {
+                    showMessage('An error occurred. Please try again.', 'error');
+                }
+            });
+
+            document.getElementById('login-btn').addEventListener('click', async () => {
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                try {
+                    const response = await fetch(`${API_URL}/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    const result = await response.json();
+                    if (response.ok) {
+                        setLoggedIn(result.token);
+                        showMessage(result.message, 'success');
+                    } else {
+                        showMessage(result.message, 'error');
+                    }
+                } catch (error) {
+                    showMessage('An error occurred. Please try again.', 'error');
+                }
+            });
+
+            document.getElementById('logout-btn').addEventListener('click', () => {
+                setLoggedOut();
+            });
+
+            document.getElementById('add-task-btn').addEventListener('click', async () => {
+                const titleInput = document.getElementById('new-task-title');
+                const title = titleInput.value;
+                const token = localStorage.getItem('token');
+                if (!token || !title) return;
+
+                    try {
+                        const response = await fetch(`${API_URL}/tasks`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({ title })
+                        });
+                        if (response.ok) {
+                            titleInput.value = '';
+                            fetchTasks();
+                        } else {
+                            const result = await response.json();
+                            showMessage(result.message, 'error');
+                        }
+                    } catch (error) {
+                        showMessage('An error occurred. Please try again.', 'error');
+                    }
+                });
+
+                taskList.addEventListener('click', async (event) => {
+                    const target = event.target;
+                    const token = localStorage.getItem('token');
+                    if (!token) return;
+
+                    if (target.classList.contains('delete-btn')) {
+                        const taskId = target.dataset.id;
+                        try {
+                            const response = await fetch(`${API_URL}/tasks/${taskId}`, {
+                                method: 'DELETE',
+                                headers: { 'Authorization': `Bearer ${token}` }
+                            });
+                            if (response.ok) {
+                                fetchTasks();
+                            } else {
+                                const result = await response.json();
+                                showMessage(result.message, 'error');
+                            }
+                        } catch (error) {
+                            showMessage('An error occurred. Please try again.', 'error');
+                        }
+                    }
+
+                    if (target.classList.contains('complete-btn')) {
+                        const taskId = target.dataset.id;
+                        const completed = target.dataset.completed === 'true' ? false : true;
+                        try {
+                            const response = await fetch(`${API_URL}/tasks/${taskId}`, {
+                                method: 'PUT',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${token}`
+                                },
+                                body: JSON.stringify({ completed })
+                            });
+                            if (response.ok) {
+                                fetchTasks();
+                            } else {
+                                const result = await response.json();
+                                showMessage(result.message, 'error');
+                            }
+                        } catch (error) {
+                            showMessage('An error occurred. Please try again.', 'error');
+                        }
+                    }
+                });
+
+                // Check if a token exists on page load
+                if (localStorage.getItem('token')) {
+                    setLoggedIn(localStorage.getItem('token'));
+                }
+        </script>
+    </body>
+    </html>

@@ -1,0 +1,50 @@
+# A deployment for the Python backend application.
+# It creates a set of identical pods running the backend container.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: python-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: python-backend
+  template:
+    metadata:
+      labels:
+        app: python-backend
+    spec:
+      imagePullSecrets:
+      - name: regcred
+      containers:
+        - name: backend
+          image: staian000/python-todo-backend:latest
+          ports:
+            - containerPort: 5000
+          # Define environment variables from the ConfigMap and Secret
+          env:
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: todo-app-config
+                  key: DB_HOST
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: todo-app-config
+                  key: DB_NAME
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: todo-app-config
+                  key: DB_USER
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: todo-app-secrets
+                  key: JWT_SECRET
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: todo-app-secrets
+                  key: DB_PASSWORD
