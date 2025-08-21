@@ -33,14 +33,14 @@ spec:
         - name: frontend-volume
           configMap:
             # The name of the ConfigMap must match the one defined below.
-            name: {{ .Release.Name }}-config
+            name: {{ .Release.Name }}-config-frontend
 ---
 # A ConfigMap to hold the index.html content for the frontend.
 # This makes it easy to update the website without changing the container image.
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Release.Name }}-config
+  name: {{ .Release.Name }}-config-frontend
   labels:
     app: {{ .Release.Name }}-frontend
 data:
