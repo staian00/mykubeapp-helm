@@ -1,0 +1,21 @@
+apiVersion: v1
+entries:
+  todo-app-chart:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2025-08-21T13:34:41.7233302+02:00"
+    description: A Helm chart for the Python To-Do application.
+    digest: 4d082977232ba068c7aaeaa47a35c55363b863772e301eab4f8a8eafcad2f907
+    keywords:
+    - todo
+    - python
+    - kubernetes
+    - helm
+    maintainers:
+    - email: gleb.ponasenkov@seznam.cz
+      name: Gleb Ponasenkov
+    name: todo-app-chart
+    urls:
+    - https://staian00.github.io/mykubeapp-helm/todo-app-chart-0.1.0.tgz
+    version: 0.1.0
+generated: "2025-08-21T13:34:41.7233302+02:00"
